@@ -24,7 +24,5 @@
     * [get和set](get和set.md)
     * [属性描述](属性描述.md)
 * [ES6](ES6.md)
-    * [语法糖](语法糖.md)
-    * [“新特性”？](“新特性”？.md)
     * [Promise](Promise.md)
 * [SICP](SICP.md)
