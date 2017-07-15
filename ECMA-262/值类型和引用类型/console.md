@@ -7,12 +7,14 @@
 后续章节的讲解，我决定尽可能用代码来表达要说明的概念，所以会有大量使用到控制台的地方，特此事先进行说明。
 * * * * *
 本节重点讲述的是console对象的dir函数，与大家常用的console.log不同的是，dir并不是用于日志输出，而是一个打印JS变量结构的函数。
+
 ~~~
 var str='ES';
 console.dir(str);
 var obj={ name: 'ES' };
 console.dir(obj);
 ~~~
+
 ![](../../images/TIM截图20170713173809.jpg)
 
 使用**console.dir**打印变量后，点左侧的三角展开他的结构。
