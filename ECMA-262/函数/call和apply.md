@@ -35,7 +35,9 @@ var foo = { foo: 'I am foo' };
 
 //call(thisRef,...[argus]);
 func.call(foo, 1, 2, 3);
+
 console.log('---------');
+
 //apply(thisRef,[argus])
 func.apply(foo, [1, 2, 3]);
 ~~~
@@ -51,7 +53,8 @@ foo.func(1, 2, 3);
 
 ![](../../images/TIM截图20170724214726.jpg)
 
-因此，可以把函数的调用看作是call或apply函数的使用，那么this的绑定行为就不会显得很特别。
+因此，把函数的调用看作是call或apply函数的使用，this几乎和一般的参数一样。
+这样一来，this的绑定行为就不会显得很特别。
 
 # this与装箱
 
@@ -67,3 +70,6 @@ var num = 2017;
 num.func();//Number类对象
 ~~~
 
+原始值作为this的绑定传入函数前，会进行一次装箱，将新构造的对象与this关键字进行绑定。
+
+一如前文所述，this关键字的作用是获取调用函数的对象。
