@@ -21,7 +21,6 @@
         * [eval](ECMA-262/函数/eval.md)
         * [with](ECMA-262/函数/with.md)
     * [异常控制](ECMA-262/异常控制.md)
-    * [任务队列](ECMA-262/任务队列.md)
 * [ES5](ES5.md)
     * [阅读文档](ES5/阅读文档.md)
     * [Object](ES5/Object.md)
