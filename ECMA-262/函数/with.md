@@ -35,7 +35,9 @@ foo.look();//2
 
 ~~~
 var obj = {
-    a: 0
+    b: function () {
+        return this;
+    }
 };
 
 var foo;
