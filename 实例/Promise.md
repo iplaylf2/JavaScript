@@ -48,12 +48,8 @@ Promise实例：
 ~~~
 (function () {
     "use strict";
-    //状态选项
-    var emStatus = {
-        pending: 0,//进行中。
-        resolved: 1,//成功。
-        rejected: 2//失败。
-    };
+    //状态枚举
+    var emStatus = { pending: 0, resolved: 1, rejected: 2 };
 
     var Promise = function (task) {
 
@@ -64,28 +60,9 @@ Promise实例：
 
         };
 
-        var status = emStatus.pending,//异步（同步）操作的状态
-            //成功时使用的对象
-            Success = {
-                value,
-                event,
-                run: function () {
-
-                }
-            },
-            //失败时使用的对象
-            Faliure = {
-                reason,
-                event,
-                run: function () {
-
-                }
-            },
-            //将消息通知给then部署的任务。
-            Chain = {
-                resolve,
-                reject
-            };
+        var status = emStatus.pending,//任务的状态
+            boxValue,//任务的结果
+            chain = { resolve, reject };//抛出的Promise实例的触发装置
 
         var resolve = function (value) {
 
@@ -113,3 +90,68 @@ Promise实例：
     return Promise;
 })();
 ~~~
+
+then和catch所部署的函数的触发，取决于Promise实例的内部状态。所以then和catch写进了Promise实例的构造函数，以引用包含Promise实例内部状态的环境。
+如此一来，Promise实例只能被创建时注入的resolve和reject函数所触发。这种具有内部封闭性的对象才能称得上是真正的对象。
+
+Promise实例我设置了三个状态变量。
+
+* status为任务的状态，有三个，未开始（pending），成功（resolved）和失败（rejected）。
+* boxValue为任务的结果，成功失败的结果都会被保存。
+* 因为then会抛出一个新的Promise实例，所以需要保存该实例的触发装置，使用chain保存resolve和reject触发装置。
+
+Promise.resolve/Promise.reject如意义上的抛出一个新的成功/失败Promise实例。
+
+# 骨架的优化和改进。
+
+catch函数实际上相当于then(null,onFailure)。因此不用每次在构造函数中构造，只需要使用原型链的方式访问。
+
+同一个异步Promise实例的then函数可以被触发多次，因此chain应该是个数组。
+
+~~~
+(function () {
+    "use strict";
+
+    var emStatus = { pending: 0, resolved: 1, rejected: 2 };
+
+    var Promise = function (task) {
+
+        this.then = function (onSuccess, onFailure) {
+
+        };
+
+        var status = emStatus.pending,
+            boxValue,
+            chainArr = [];
+
+        var resolve = function (value) {
+
+        };
+
+        var reject = function (reason) {
+
+        };
+        task(resolve, reject);
+    };
+    Promise.prototype = {
+        catch: function (onFailure) {
+            return this.then(null, onFailure);
+        }
+    };
+
+    Promise.resolve = function (value) {
+        return new Promise(function (resolve) {
+            resolve(value);
+        });
+    };
+    Promise.reject = function (reason) {
+        return new Promise(function (resolve, reject) {
+            reject(reason);
+        });
+    };
+
+    return Promise;
+})();
+~~~
+
+此时只要实现then，resolve和reject。
