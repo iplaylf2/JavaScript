@@ -155,3 +155,344 @@ catch函数实际上相当于then(null,onFailure)。因此不用每次在构造�
 ~~~
 
 此时只要实现then，resolve和reject。
+
+# then
+
+Promise实例使用then的时候，他可能有三种状态。仍未触发回调的pending，已经有结果的resolved和rejected。
+
+~~~
+this.then = function (onSuccess, onFailure) {
+    switch (status) {
+        case emStatus.pending:
+            return new Promise(function (resolve, reject) {
+                var chain = {};
+                if (onSuccess) {
+                }
+                else {
+                    chain.resolve = resolve;
+                }
+                if (onFailure) {
+                }
+                else {
+                    chain.reject = reject;
+                }
+                chainArr.push(chain);
+            });
+        case emStatus.resolved:
+            if (onSuccess) {
+            }
+            else {
+                return Promise.resolve(boxValue);
+            }
+        case emStatus.rejected:
+            if (onFailure) {
+            }
+            else {
+                return Promise.reject(boxValue);
+            }
+    }
+};
+~~~
+
+## pending
+
+如果then没有传入参数，即没有部署操作结果的处理函数。那么返回的Promise实例将继承之前操作的结果。
+
+如果pending状态时部署了处理函数，那么在未来，将会用该函数对操作返回结果进行处理。被处理后的结果，将是一个resolved的结果。期间发生异常，将被判断为rejected。
+
+这个处理函数包括操作成功和失败时的处理函数：
+
+~~~
+var result;
+try {
+    result = on(value);
+}
+catch (e) {
+    reject(e);
+    return;
+}
+if (result instanceof Promise) {
+    result.then(function (value) {
+        resolve(value);
+    });
+}
+else {
+    resolve(result);
+}
+~~~
+
+如果处理函数接着抛出一个Promise实例，那么需要等该Promise实例触发回调后才把处理函数视为返回了结果。
+
+以上就是处理函数的内容，那么我们需要再将其抽象为下一个Promise的触发装置。
+而且，因为处理函数包括成功和失败的处理函数，所以可以抽象一个通用的模板。我给他取名nextPromise。
+
+~~~
+var nextPromise = function (on, resolve, reject) {
+    return function (value) {
+        var result;
+        try {
+            result = on(value);
+        }
+        catch (e) {
+            reject(e);
+            return;
+        }
+        if (result instanceof Promise) {
+            result.then(function (value) {
+                resolve(value);
+            });
+        }
+        else {
+            resolve(result);
+        }
+    };
+};
+~~~
+
+使用该模板，就能生成下一个Promise的触发装置。
+
+~~~
+chain.resolve = nextPromise(onSuccess, resolve, reject);
+~~~
+
+## resolved和rejected
+
+Promise实例完成状态的then，情况比较简单。只要保证返回结果一定是Promise就可以了，我给他取名getPromise。
+
+~~~
+var getPromise = function (on, value) {
+    var result;
+    try {
+        result = on(value);
+    }
+    catch (e) {
+        return Promise.reject(e);
+    }
+    if (result instanceof Promise) {
+        return result;
+    }
+    else {
+        return Promise.resolve(result);
+    }
+};
+~~~
+
+## then
+
+所以then的最终代码是
+
+~~~
+this.then = function (onSuccess, onFailure) {
+    switch (status) {
+        case emStatus.pending:
+            return new Promise(function (resolve, reject) {
+                var chain = {};
+                if (onSuccess) {
+                    chain.resolve = nextPromise(onSuccess, resolve, reject);
+                }
+                else {
+                    chain.resolve = resolve;
+                }
+                if (onFailure) {
+                    chain.reject = nextPromise(onFailure, resolve, reject);
+                }
+                else {
+                    chain.reject = reject;
+                }
+                chainArr.push(chain);
+            });
+        case emStatus.resolved:
+            if (onSuccess) {
+                return getPromise(onSuccess, boxValue);
+            }
+            else {
+                return Promise.resolve(boxValue);
+            }
+        case emStatus.rejected:
+            if (onFailure) {
+                return getPromise(onFailure, boxValue);
+            }
+            else {
+                return Promise.reject(boxValue);
+            }
+    }
+};
+~~~
+
+# resolve和reject
+
+一个Promise实例的状态只会被改变一次，再要改变的话就抛出异常吧。
+改变Promise实例的状态后，就是触发之前所有使用then抛出的新Promise实例。
+
+~~~
+var resolve = function (value) {
+    if (status === emStatus.pending) {
+        status = emStatus.resolved;
+        boxValue = value;
+
+        chainArr.forEach(function (chain) {
+            chain.resolve(value);
+        });
+    }
+    else {
+        throw value;
+    }
+};
+~~~
+
+实际上，reject跟resolve做同一样的事情。
+
+~~~
+var reject = function (reason) {
+    if (status === emStatus.pending) {
+        status = emStatus.rejected;
+        boxValue = reason;
+
+        chainArr.forEach(function (chain) {
+            chain.reject(reason);
+        });
+    }
+    else {
+        throw reason;
+    }
+};
+~~~
+
+# 最终代码
+
+~~~
+(function () {
+    "use strict";
+    var emStatus = { pending: 0, resolved: 1, rejected: 2 };
+
+    var Promise = function (task) {
+        this.then = function (onSuccess, onFailure) {
+            switch (status) {
+                case emStatus.pending:
+                    return new Promise(function (resolve, reject) {
+                        var chain = {};
+                        if (onSuccess) {
+                            chain.resolve = nextPromise(onSuccess, resolve, reject);
+                        }
+                        else {
+                            chain.resolve = resolve;
+                        }
+                        if (onFailure) {
+                            chain.reject = nextPromise(onFailure, resolve, reject);
+                        }
+                        else {
+                            chain.reject = reject;
+                        }
+                        chainArr.push(chain);
+                    });
+                case emStatus.resolved:
+                    if (onSuccess) {
+                        return getPromise(onSuccess, boxValue);
+                    }
+                    else {
+                        return Promise.resolve(boxValue);
+                    }
+                case emStatus.rejected:
+                    if (onFailure) {
+                        return getPromise(onFailure, boxValue);
+                    }
+                    else {
+                        return Promise.reject(boxValue);
+                    }
+            }
+        };
+
+        var status = emStatus.pending,
+            boxValue,
+            chainArr = [];
+
+        var resolve = function (value) {
+            if (status === emStatus.pending) {
+                status = emStatus.resolved;
+                boxValue = value;
+
+                chainArr.forEach(function (chain) {
+                    chain.resolve(value);
+                });
+            }
+            else {
+                throw value;
+            }
+        };
+        var reject = function (reason) {
+            if (status === emStatus.pending) {
+                status = emStatus.rejected;
+                boxValue = reason;
+
+                chainArr.forEach(function (chain) {
+                    chain.reject(reason);
+                });
+            }
+            else {
+                throw reason;
+            }
+        };
+
+        try {
+            task(resolve, reject);
+        }
+        catch (e) {
+            reject(e);
+        }
+    };
+    Promise.prototype = {
+        catch: function (onFailure) {
+            return this.then(null, onFailure);
+        }
+    };
+
+    Promise.resolve = function (value) {
+        return new Promise(function (resolve) {
+            resolve(value);
+        });
+    };
+    Promise.reject = function (reason) {
+        return new Promise(function (resolve, reject) {
+            reject(reason);
+        });
+    };
+
+    var nextPromise = function (on, resolve, reject) {
+        return function (value) {
+            var result;
+            try {
+                result = on(value);
+            }
+            catch (e) {
+                reject(e);
+                return;
+            }
+            if (result instanceof Promise) {
+                result.then(function (value) {
+                    resolve(value);
+                });
+            }
+            else {
+                resolve(result);
+            }
+        };
+    };
+    var getPromise = function (on, value) {
+        var result;
+        try {
+            result = on(value);
+        }
+        catch (e) {
+            return Promise.reject(e);
+        }
+        if (result instanceof Promise) {
+            return result;
+        }
+        else {
+            return Promise.resolve(result);
+        }
+    };
+
+    return Promise;
+})();
+~~~
